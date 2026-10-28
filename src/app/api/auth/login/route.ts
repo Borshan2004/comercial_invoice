@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { createSession } from '@/lib/auth';
 
 export async function POST(request: Request) {
@@ -11,9 +11,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { username },
-    });
+    const user = await withRetry(() =>
+      prisma.user.findUnique({ where: { username } })
+    );
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

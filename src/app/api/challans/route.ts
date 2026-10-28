@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { generateUniqueInvoiceNo, getCurrentDhakaDate, formatValueInWords } from '@/lib/challan-utils';
 import { autoSaveInvoiceSuggestions } from '@/lib/suggestions-utils';
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const challans = await prisma.challan.findMany({
+    const challans = await withRetry(() => prisma.challan.findMany({
       where,
       include: {
         createdBy: {
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { createdAt: 'desc' },
-    });
+    }));
 
     return NextResponse.json({ challans });
   } catch (err: any) {

@@ -49,9 +49,9 @@ export default function Navbar() {
               />
               <div className="flex flex-col">
                 <span className="font-bold text-slate-900 text-base leading-tight">
-                  Apparel Sourcing International Inc
+                  Apparel Sourcing Int&apos;l Inc.
                 </span>
-                <span className="text-xs text-slate-500">Challan Management System</span>
+                <span className="text-xs text-slate-500">Commercial Invoice Portal</span>
               </div>
             </Link>
           </div>
@@ -68,7 +68,7 @@ export default function Navbar() {
             >
               <div className="flex items-center space-x-1.5">
                 <FileText className="w-4 h-4" />
-                <span>All Challans</span>
+                <span>All Invoices</span>
               </div>
             </Link>
 
@@ -83,7 +83,7 @@ export default function Navbar() {
               >
                 <div className="flex items-center space-x-1.5">
                   <PlusCircle className="w-4 h-4" />
-                  <span>+ New Challan</span>
+                  <span>+ New Invoice</span>
                 </div>
               </Link>
             )}
@@ -104,8 +104,9 @@ export default function Navbar() {
                           ADMIN
                         </span>
                       ) : (
-                        <span className="inline-flex items-center text-[10px] bg-slate-100 text-slate-600 font-medium px-1.5 py-0.2 rounded">
-                          VIEW ONLY
+                        <span className="inline-flex items-center text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.2 rounded">
+                          <UserIcon className="w-2.5 h-2.5 mr-0.5" />
+                          USER
                         </span>
                       )}
                     </div>

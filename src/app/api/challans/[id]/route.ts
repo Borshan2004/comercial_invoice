@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { formatValueInWords } from '@/lib/challan-utils';
+import { autoSaveInvoiceSuggestions } from '@/lib/suggestions-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +15,7 @@ export async function GET(
       where: { id: params.id },
       include: {
         createdBy: {
-          select: { id: true, name: true, username: true },
+          select: { id: true, name: true, username: true, role: true },
         },
         items: {
           orderBy: { slNo: 'asc' },
@@ -22,12 +24,12 @@ export async function GET(
     });
 
     if (!challan) {
-      return NextResponse.json({ error: 'Challan not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
     return NextResponse.json({ challan });
   } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to fetch challan' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch invoice' }, { status: 500 });
   }
 }
 
@@ -40,69 +42,149 @@ export async function PUT(
     if (!session) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    // Both ADMIN and USER can edit challans
+
+    // STRICT CHECK: Regular users cannot edit, only ADMIN can edit
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Permission denied. Only administrators can edit existing records.' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const {
+      challanNo,
+      invoiceNo,
+      awbNo,
+      totalWeight,
+      date: customDate,
+      // Shipper
+      shipperCompany = "Apparel Sourcing Int'l Inc",
+      shipperAttn = 'Gunjan',
+      shipperAddress = 'House#30, 3rd Floor, Western Road, Banani DOHS',
+      shipperCity = 'Dhaka',
+      shipperPostalCode = '1206',
+      shipperCountry = 'Bangladesh',
+      shipperPhone = '880 1774-109199',
+      shipperEmail = 'afaz@apparelsourcingint.com',
+      // Manufacturer
+      manufCompany = 'PACIFIC BLUE JEANS WEAR LTD (Al muslim group)',
+      manufAddress = 'A-8/1, JALESHWAR, SAVAR',
+      manufCity = 'Dhaka',
+      manufPostalCode = '1340',
+      manufCountry = 'Bangladesh',
+      // Consignee
       name,
       address,
-      refNo,
-      fromName = 'Ms.Shamoly',
-      isReturnable = true,
-      senderSign = 'Srabon (01774-109199)',
-      receiverName,
-      notes = '1) Receive the above goods in good condition.',
+      consigneeAttn,
+      consigneeCity,
+      consigneePostal,
+      consigneeCountry,
+      consigneePhone,
+      consigneeEmail,
+      consigneeTaxId,
+      // Origin & Codes
+      countryOfOrigin = 'BANGLADESH',
+      midCode = 'BDASIINC1206DHA',
+      purpose = 'SAMPLE FOR APPROVAL PURPOSE',
+      totalValueInWords,
+      notes = '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.',
       items = [],
     } = body;
 
-    if (!name || !address) {
-      return NextResponse.json({ error: 'Name and Address are required' }, { status: 400 });
+    if (!name || !name.trim()) {
+      return NextResponse.json({ error: 'Consignee Company Name is required' }, { status: 400 });
     }
 
     // Calculate totals on server
     let totalQty = 0;
-    let totalYdsKg = 0;
+    let totalAmountUsd = 0;
 
     const formattedItems = items
       .filter((item: any) => item.particular && item.particular.trim() !== '')
       .map((item: any, idx: number) => {
         const qty = parseInt(item.qty, 10) || 0;
-        const ydsKg = parseFloat(item.ydsKg) || 0.0;
+        const unitVal = parseFloat(item.unitValueUsd) || 0.0;
+        const totalVal = Math.round((qty * unitVal) * 100) / 100;
         totalQty += qty;
-        totalYdsKg += ydsKg;
+        totalAmountUsd += totalVal;
 
         return {
           slNo: idx + 1,
           particular: item.particular.trim(),
-          qty: qty,
-          unit: item.unit || 'Pcs',
-          ydsKg: ydsKg,
-          ydsUnit: item.ydsUnit || 'yds',
+          harmonizedCode: item.harmonizedCode ? item.harmonizedCode.trim() : '',
+          qty,
+          unit: item.unit || 'PCS',
+          unitValueUsd: unitVal,
+          totalValueUsd: totalVal,
+          ydsKg: 0.0,
+          ydsUnit: 'yds',
         };
       });
+
+    totalAmountUsd = Math.round(totalAmountUsd * 100) / 100;
+
+    const finalWords = totalValueInWords && totalValueInWords.trim()
+      ? totalValueInWords.trim()
+      : formatValueInWords(totalAmountUsd);
 
     // Delete existing items and recreate to maintain sequence
     await prisma.challanItem.deleteMany({
       where: { challanId: params.id },
     });
 
+    const updateData: any = {
+      name: name.trim(),
+      address: address ? address.trim() : '',
+      consigneeAttn: consigneeAttn ? consigneeAttn.trim() : null,
+      consigneeCity: consigneeCity ? consigneeCity.trim() : '',
+      consigneePostal: consigneePostal ? consigneePostal.trim() : '',
+      consigneeCountry: consigneeCountry ? consigneeCountry.trim() : '',
+      consigneePhone: consigneePhone ? consigneePhone.trim() : '',
+      consigneeEmail: consigneeEmail ? consigneeEmail.trim() : '',
+      consigneeTaxId: consigneeTaxId ? consigneeTaxId.trim() : '',
+
+      shipperCompany: shipperCompany.trim(),
+      shipperAttn: shipperAttn ? shipperAttn.trim() : null,
+      shipperAddress: shipperAddress.trim(),
+      shipperCity: shipperCity.trim(),
+      shipperPostalCode: shipperPostalCode.trim(),
+      shipperCountry: shipperCountry.trim(),
+      shipperPhone: shipperPhone.trim(),
+      shipperEmail: shipperEmail.trim(),
+
+      manufCompany: manufCompany.trim(),
+      manufAddress: manufAddress.trim(),
+      manufCity: manufCity.trim(),
+      manufPostalCode: manufPostalCode.trim(),
+      manufCountry: manufCountry.trim(),
+
+      countryOfOrigin: countryOfOrigin.trim(),
+      midCode: midCode.trim(),
+      purpose: purpose.trim(),
+      awbNo: awbNo !== undefined ? (awbNo && awbNo.trim() ? awbNo.trim() : null) : undefined,
+      invoiceNo: invoiceNo !== undefined ? (invoiceNo && invoiceNo.trim() ? invoiceNo.trim() : null) : undefined,
+      totalWeight: totalWeight !== undefined ? (totalWeight && totalWeight.trim() ? totalWeight.trim() : null) : undefined,
+      totalValueInWords: finalWords,
+      totalAmountUsd,
+
+      totalQty,
+      notes: notes.trim(),
+      items: {
+        create: formattedItems,
+      },
+    };
+
+    if (challanNo && challanNo.trim()) {
+      updateData.challanNo = challanNo.trim();
+    }
+    if (customDate) {
+      updateData.date = new Date(customDate);
+    }
+
     const updated = await prisma.challan.update({
       where: { id: params.id },
-      data: {
-        name: name.trim(),
-        address: address.trim(),
-        refNo: refNo ? refNo.trim() : null,
-        fromName: fromName.trim(),
-        isReturnable: Boolean(isReturnable),
-        senderSign: senderSign.trim(),
-        receiverName: receiverName !== undefined ? (receiverName ? receiverName.trim() : null) : undefined,
-        notes: notes.trim(),
-        totalQty,
-        totalYdsKg: Math.round(totalYdsKg * 100) / 100,
-        items: {
-          create: formattedItems,
-        },
-      },
+      data: updateData,
       include: {
         items: {
           orderBy: { slNo: 'asc' },
@@ -110,10 +192,43 @@ export async function PUT(
       },
     });
 
+    // Automatically save updated fields as suggestions
+    autoSaveInvoiceSuggestions({
+      name,
+      address,
+      consigneeAttn,
+      consigneeCity,
+      consigneePostal,
+      consigneeCountry,
+      consigneePhone,
+      consigneeEmail,
+      consigneeTaxId,
+      shipperCompany,
+      shipperAttn,
+      shipperAddress,
+      shipperCity,
+      shipperPostalCode,
+      shipperCountry,
+      shipperPhone,
+      shipperEmail,
+      manufCompany,
+      manufAddress,
+      manufCity,
+      manufPostalCode,
+      manufCountry,
+      countryOfOrigin,
+      midCode,
+      purpose,
+      awbNo,
+      totalWeight,
+      notes,
+      items: formattedItems,
+    }).catch((err) => console.error('Auto save suggestions error:', err));
+
     return NextResponse.json({ success: true, challan: updated });
   } catch (err: any) {
-    console.error('Update challan error:', err);
-    return NextResponse.json({ error: 'Failed to update challan' }, { status: 500 });
+    console.error('Update invoice error:', err);
+    return NextResponse.json({ error: 'Failed to update invoice' }, { status: 500 });
   }
 }
 
@@ -131,9 +246,9 @@ export async function DELETE(
       where: { id: params.id },
     });
 
-    return NextResponse.json({ success: true, message: 'Challan deleted successfully' });
+    return NextResponse.json({ success: true, message: 'Invoice deleted successfully' });
   } catch (err: any) {
-    console.error('Delete challan error:', err);
-    return NextResponse.json({ error: 'Failed to delete challan' }, { status: 500 });
+    console.error('Delete invoice error:', err);
+    return NextResponse.json({ error: 'Failed to delete invoice' }, { status: 500 });
   }
 }

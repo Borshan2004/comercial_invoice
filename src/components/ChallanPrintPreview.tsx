@@ -10,7 +10,8 @@ import {
   Edit,
   Trash2,
   ArrowLeft,
-  Scissors,
+  ShieldCheck,
+  CheckCircle,
 } from 'lucide-react';
 import { formatChallanDate } from '@/lib/challan-utils';
 
@@ -18,24 +19,51 @@ interface ChallanPrintPreviewProps {
   challan: {
     id: string;
     challanNo: string;
+    invoiceNo?: string | null;
+    awbNo?: string | null;
+    totalWeight?: string | null;
+    date: Date | string;
+
+    shipperCompany: string;
+    shipperAttn?: string | null;
+    shipperAddress: string;
+    shipperCity: string;
+    shipperPostalCode: string;
+    shipperCountry: string;
+    shipperPhone: string;
+    shipperEmail: string;
+
+    manufCompany: string;
+    manufAddress: string;
+    manufCity: string;
+    manufPostalCode: string;
+    manufCountry: string;
+
     name: string;
     address: string;
-    refNo?: string | null;
-    fromName: string;
-    isReturnable: boolean;
-    senderSign: string;
-    receiverName?: string | null;
-    date: Date | string;
-    totalQty: number;
-    totalYdsKg: number;
+    consigneeAttn?: string | null;
+    consigneeCity?: string | null;
+    consigneePostal?: string | null;
+    consigneeCountry?: string | null;
+    consigneePhone?: string | null;
+    consigneeEmail?: string | null;
+    consigneeTaxId?: string | null;
+
+    countryOfOrigin: string;
+    midCode: string;
+    purpose: string;
+    totalValueInWords?: string | null;
+    totalAmountUsd: number;
     notes?: string | null;
+
     items: {
       slNo: number;
       particular: string;
+      harmonizedCode?: string | null;
       qty?: number | null;
       unit?: string | null;
-      ydsKg?: number | null;
-      ydsUnit?: string | null;
+      unitValueUsd?: number | null;
+      totalValueUsd?: number | null;
     }[];
   };
   currentUserRole?: string;
@@ -43,7 +71,7 @@ interface ChallanPrintPreviewProps {
 
 export default function ChallanPrintPreview({
   challan,
-  currentUserRole,
+  currentUserRole = 'USER',
 }: ChallanPrintPreviewProps) {
   const router = useRouter();
   const printAreaRef = useRef<HTMLDivElement>(null);
@@ -51,16 +79,14 @@ export default function ChallanPrintPreview({
   const [deleting, setDeleting] = useState(false);
 
   const formattedDate = formatChallanDate(challan.date);
-
-  // Show only the exact items created
-  const displayItems = challan.items;
+  const isAdmin = currentUserRole === 'ADMIN';
 
   // Handle native browser print
   const handlePrint = () => {
     window.print();
   };
 
-  // Direct PDF download using jspdf + html2canvas
+  // Direct PDF download
   const handleDownloadPdf = async () => {
     if (!printAreaRef.current) return;
     try {
@@ -70,13 +96,13 @@ export default function ChallanPrintPreview({
 
       const element = printAreaRef.current;
       const canvas = await html2canvas(element, {
-        scale: 2, // high DPI
+        scale: 2.5, // Crisp resolution
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -86,11 +112,11 @@ export default function ChallanPrintPreview({
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, 285));
-      pdf.save(`CHALLAN-${challan.challanNo}.pdf`);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, 287));
+      pdf.save(`Commercial-Invoice-${(challan.invoiceNo || challan.challanNo).replace(/\s+/g, '-')}.pdf`);
     } catch (err) {
       console.error('PDF generation error:', err);
-      alert('Could not generate PDF directly. Please use "Print / Save as PDF".');
+      alert('Could not export PDF directly. Please use "Print (A4)" and choose "Save as PDF".');
     } finally {
       setDownloadingPdf(false);
     }
@@ -101,9 +127,9 @@ export default function ChallanPrintPreview({
     window.open(`/api/challans/${challan.id}/excel`, '_blank');
   };
 
-  // Delete Challan
+  // Delete invoice
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to permanently delete Challan ${challan.challanNo}?`)) {
+    if (!confirm(`Are you sure you want to permanently delete Invoice ${challan.challanNo}?`)) {
       return;
     }
 
@@ -111,173 +137,18 @@ export default function ChallanPrintPreview({
       setDeleting(true);
       const res = await fetch(`/api/challans/${challan.id}`, { method: 'DELETE' });
       if (!res.ok) {
-        throw new Error('Failed to delete challan');
+        throw new Error('Failed to delete invoice');
       }
       router.push('/challans');
       router.refresh();
     } catch (err: any) {
-      alert(err.message || 'Error deleting challan');
+      alert(err.message || 'Error deleting invoice');
       setDeleting(false);
     }
   };
 
-  // Single Slip Component: Uses flex-col justify-between for balanced equal spacing
-  const renderSlip = (copyLabel?: string) => (
-    <div className="challan-slip bg-white p-4 sm:p-5 flex-1 flex flex-col justify-between text-black select-none text-[11px] leading-normal min-h-[132mm] max-h-[136mm]">
-      {/* Top Section */}
-      <div>
-        {/* 1. Header with Logo & Address */}
-        <div className="flex items-start justify-between pb-2 bg-white">
-          {/* ASI Logo Icon */}
-          <div className="flex items-center space-x-3">
-            <img
-              src="/asi-logo.png"
-              alt="ASI Logo"
-              className="w-13 h-11 object-contain flex-shrink-0"
-            />
-            <div className="flex flex-col">
-              <h2 className="text-[16px] font-bold text-black tracking-tight leading-tight">
-                Apparel Sourcing International Inc
-              </h2>
-              <p className="text-[9.5px] text-black leading-tight mt-0.5">
-                Anukul, House# 30, Apt# B-3, (3rd Floor) Western Road,
-              </p>
-              <p className="text-[9.5px] text-black leading-tight">
-                Banani DOHS, Dhaka-1206, Bangladesh. Ph: 880-2-8715826, 8715827, 8715779
-              </p>
-            </div>
-          </div>
-
-          {/* Challan Title & Number (Clean text, NO gray background) */}
-          <div className="text-right flex-shrink-0">
-            <div className="text-[17px] font-extrabold tracking-wider underline">
-              CHALLAN
-            </div>
-            <div className="mt-1 flex items-center justify-end text-[11.5px]">
-              <span className="font-bold mr-1.5 text-black">Challan No:</span>
-              <span className="font-extrabold text-[12.5px] text-black">
-                {challan.challanNo}
-              </span>
-            </div>
-            {copyLabel && (
-              <div className="mt-0.5 text-[9px] uppercase tracking-wider text-black font-semibold">
-                {copyLabel}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 2. Top Info Box (Name, Address, Date, Ref. No) */}
-        <div className="border border-black my-2 grid grid-cols-12 text-[10.5px] bg-white">
-          {/* Left Column (Name & Address) */}
-          <div className="col-span-8 p-1.5 border-r border-black space-y-0.5 bg-white">
-            <div className="flex">
-              <span className="w-20 font-bold text-black shrink-0">Name :</span>
-              <span className="font-semibold text-black">{challan.name}</span>
-            </div>
-            <div className="flex">
-              <span className="w-20 font-bold text-black shrink-0">Address :</span>
-              <span className="text-black">{challan.address}</span>
-            </div>
-          </div>
-
-          {/* Right Column (Date & Ref No) */}
-          <div className="col-span-4 p-1.5 space-y-0.5 bg-white">
-            <div className="flex">
-              <span className="w-20 font-bold text-black shrink-0">Date :</span>
-              <span className="font-semibold text-black">{formattedDate}</span>
-            </div>
-            <div className="flex">
-              <span className="w-20 font-bold text-black shrink-0">Ref. No. :</span>
-              <span className="text-black">{challan.refNo || '-'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Items Table - Pure HTML Table on White Background */}
-        <div className="my-2">
-          <table className="w-full text-left text-[10.5px] border-collapse border border-black bg-white">
-            <thead>
-              <tr className="border-b border-black text-center font-bold bg-white">
-                <th className="w-12 py-1.5 border-r border-black text-center font-bold text-black">Sl.No</th>
-                <th className="py-1.5 px-3 border-r border-black text-left font-bold text-black">Particulars</th>
-                <th className="w-24 py-1.5 border-r border-black text-center font-bold text-black">Qty.</th>
-                <th className="w-28 py-1.5 text-center font-bold text-black">YDS/KG</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white">
-              {displayItems.map((item, idx) => (
-                <tr key={idx} className="border-b border-black/40 border-dotted text-center bg-white">
-                  <td className="border-r border-black py-1.5 px-2 font-medium text-black">{idx + 1}</td>
-                  <td className="border-r border-black py-1.5 px-3 text-left font-normal truncate max-w-[260px] text-black">
-                    {item.particular || ''}
-                  </td>
-                  <td className="border-r border-black py-1.5 px-2 font-medium text-black">
-                    {item.qty ? `${item.qty} ${item.unit || 'Pcs'}` : ''}
-                  </td>
-                  <td className="py-1.5 px-2 font-medium text-black">
-                    {item.ydsKg ? `${item.ydsKg} ${item.ydsUnit || 'yds'}` : ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-white">
-              <tr className="border-t-2 border-black bg-white font-bold text-[10.5px]">
-                <td colSpan={2} className="border-r border-black py-1.5 px-3 bg-white text-black">
-                  <div className="flex justify-between items-center">
-                    <span>From: {challan.fromName || 'Ms.Shamoly'}</span>
-                    <span className="italic">{challan.isReturnable ? '(Returnable)' : '(Not Returnable)'}</span>
-                  </div>
-                </td>
-                <td className="border-r border-black py-1.5 px-2 text-center whitespace-nowrap bg-white text-black">
-                  Total- {challan.totalQty} pcs
-                </td>
-                <td className="py-1.5 px-2 text-center whitespace-nowrap bg-white text-black">
-                  {challan.totalYdsKg} yds
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        {/* 4. Notes */}
-        <div className="mt-1 text-[9.5px] text-black">
-          <p className="italic">{challan.notes || '1) Receive the above goods in good condition.'}</p>
-        </div>
-      </div>
-
-      {/* 5. Signatures: Aligned at bottom with equal baseline */}
-      <div className="mt-auto pt-4 flex justify-between items-end text-[10.5px] bg-white">
-        {/* Receiver Signature Line with optional input name beside signature */}
-        <div className="w-64 text-left">
-          <div className="h-6 flex items-end pb-1">
-            {/* Blank signature space */}
-          </div>
-          <div className="border-t border-black pt-1 text-[10.5px] font-semibold text-black flex items-baseline flex-wrap">
-            <span>Receiver&apos;s Signature / Phn:</span>
-            {challan.receiverName && (
-              <span className="font-bold text-black ml-1.5">
-                {challan.receiverName}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Sender / Company Signature Line */}
-        <div className="w-64 text-center">
-          <div className="h-6 flex items-end justify-center pb-1 text-[10.5px] font-bold text-black">
-            {challan.senderSign || 'Srabon (01774-109199)'}
-          </div>
-          <div className="border-t border-black pt-1 font-bold text-black text-[10.5px]">
-            For-Apparel Sourcing int&apos;l inc
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4">
+    <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6">
       {/* Action Toolbar (Hidden in Print) */}
       <div className="no-print mb-6 bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
@@ -286,16 +157,16 @@ export default function ChallanPrintPreview({
             className="inline-flex items-center text-xs font-semibold text-slate-600 hover:text-slate-900"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Back to List
+            Back to Registry
           </button>
           <span className="text-slate-300">|</span>
           <span className="text-sm font-bold text-slate-800">
-            Challan: {challan.challanNo}
+            Invoice: {challan.invoiceNo || challan.challanNo}
           </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Print A4 1-Page (2-in-1 Dual Copy) */}
+          {/* Print A4 */}
           <button
             onClick={handlePrint}
             className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 transition"
@@ -323,8 +194,8 @@ export default function ChallanPrintPreview({
             Download Excel
           </button>
 
-          {/* Edit - available to all users */}
-          {currentUserRole && (
+          {/* Edit - ONLY VISIBLE TO ADMIN */}
+          {isAdmin && (
             <>
               <span className="text-slate-300">|</span>
               <Link
@@ -338,7 +209,7 @@ export default function ChallanPrintPreview({
           )}
 
           {/* Delete - Admin only */}
-          {currentUserRole === 'ADMIN' && (
+          {isAdmin && (
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -351,26 +222,351 @@ export default function ChallanPrintPreview({
         </div>
       </div>
 
-      {/* The Printable Page Container: Exactly fits an A4 Sheet with 50/50 Equal Half-Page Distribution */}
+      {/* The Printable Page Container: Exactly matches picture 1 */}
       <div
         ref={printAreaRef}
-        className="print-page bg-white p-2 sm:p-4 rounded-none border-0 shadow-none flex flex-col justify-between min-h-[275mm] max-h-[282mm] space-y-0"
+        className="print-page bg-white p-6 sm:p-8 rounded-none border border-slate-300 shadow-md text-black max-w-[210mm] mx-auto"
       >
-        {/* Slip 1: Top Copy (Exact Top Half - Office Copy) */}
-        {renderSlip('Office Copy')}
-
-        {/* Perforated Cutting Line (Exact 50% Dead Center) */}
-        <div className="cut-line-divider flex items-center my-auto py-2 relative select-none">
-          <div className="flex-grow border-t-2 border-dashed border-black"></div>
-          <div className="px-3 flex items-center text-[9.5px] text-black font-semibold bg-white">
-            <Scissors className="w-3 h-3 mr-1 text-black" />
-            <span>Cut Here • Same to Same Dual Copy</span>
+        {/* 1. Header with Logo & Title */}
+        <div className="flex items-center justify-between pb-3">
+          <div className="flex items-center space-x-4 w-20">
+            <img
+              src="/asi-logo.png"
+              alt="ASI Logo"
+              className="w-16 h-12 object-contain"
+            />
           </div>
-          <div className="flex-grow border-t-2 border-dashed border-black"></div>
+          <div className="text-center flex-1 pr-16">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-black">
+              Apparel Sourcing Int&apos;l Inc.
+            </h1>
+          </div>
         </div>
 
-        {/* Slip 2: Bottom Copy (Exact Bottom Half - Customer Copy) */}
-        {renderSlip('Customer Copy')}
+        {/* 2. Unified Solid Bordered Sheet (Zero Gaps Between Rows) */}
+        <div className="border-2 border-black bg-white">
+          {/* Sub-Banner: Commercial Invoice */}
+          <div className="bg-[#e9ecef] border-b-2 border-black py-1.5 text-center">
+            <span className="text-sm font-bold tracking-wide text-black uppercase">
+              Commercial Invoice
+            </span>
+          </div>
+
+          {/* Row 1: AWB NO, INVOICE NO & DATE */}
+          <div className="border-b-2 border-black grid grid-cols-12 text-xs bg-white">
+            <div className="col-span-4 flex items-center border-r-2 border-black p-1 px-2.5">
+              <span className="font-extrabold text-black uppercase tracking-wider mr-2">
+                AWB NO :
+              </span>
+              <span className="font-bold text-black text-xs sm:text-sm">
+                {challan.awbNo || ''}
+              </span>
+            </div>
+            <div className="col-span-4 flex items-center border-r-2 border-black p-1 px-2.5">
+              <span className="font-extrabold text-black uppercase tracking-wider mr-2">
+                INVOICE NO :
+              </span>
+              <span className="font-bold text-black text-xs sm:text-sm">
+                {challan.invoiceNo || challan.challanNo}
+              </span>
+            </div>
+            <div className="col-span-4 flex items-center p-1 px-2.5">
+              <span className="font-extrabold text-black uppercase tracking-wider mr-2">
+                DATE :
+              </span>
+              <span className="font-bold text-black text-xs sm:text-sm">
+                {formattedDate}
+              </span>
+            </div>
+          </div>
+
+          {/* Row 2: Three Party Columns (Shipper, Manufacturer, Consignee) */}
+          <div className="border-b-2 border-black grid grid-cols-3 text-[10.5px] leading-relaxed">
+            {/* Column 1: Shipper */}
+            <div className="border-r-2 border-black p-2 flex flex-col justify-between">
+              <div>
+                <div className="font-bold text-center border-b border-black pb-1 mb-1.5 text-[11px] uppercase tracking-tight text-black">
+                  Shipper Name &amp; Address
+                </div>
+                <div className="space-y-0.5 text-black">
+                  <div>
+                    <span className="font-bold">Company: </span>
+                    <span>{challan.shipperCompany}</span>
+                  </div>
+                  {challan.shipperAttn && (
+                    <div>
+                      <span className="font-bold">Attn: </span>
+                      <span>{challan.shipperAttn}</span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="font-bold">Address: </span>
+                    <span>{challan.shipperAddress}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">City: </span>
+                    <span>{challan.shipperCity}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Postal Code: </span>
+                    <span>{challan.shipperPostalCode}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Country: </span>
+                    <span>{challan.shipperCountry}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Phone: </span>
+                    <span>{challan.shipperPhone}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Email: </span>
+                    <span>{challan.shipperEmail}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 2: Manufacturer */}
+            <div className="border-r-2 border-black p-2 flex flex-col justify-between">
+              <div>
+                <div className="font-bold text-center border-b border-black pb-1 mb-1.5 text-[11px] uppercase tracking-tight text-black">
+                  Manufacturer Name &amp; Address
+                </div>
+                <div className="space-y-0.5 text-black">
+                  <div>
+                    <span className="font-bold">Company: </span>
+                    <span>{challan.manufCompany}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Address: </span>
+                    <span>{challan.manufAddress}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">City: </span>
+                    <span>{challan.manufCity}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Postal Code: </span>
+                    <span>{challan.manufPostalCode}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Country: </span>
+                    <span>{challan.manufCountry}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 3: Consignee */}
+            <div className="p-2 flex flex-col justify-between">
+              <div>
+                <div className="font-bold text-right border-b border-black pb-1 mb-1.5 text-[11px] uppercase tracking-tight text-black">
+                  Consignee Name &amp; Address
+                </div>
+                <div className="space-y-0.5 text-black">
+                  <div>
+                    <span className="font-bold">Company: </span>
+                    <span>{challan.name}</span>
+                  </div>
+                  {challan.consigneeAttn && (
+                    <div>
+                      <span className="font-bold">Attn: </span>
+                      <span>{challan.consigneeAttn}</span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="font-bold">Address: </span>
+                    <span>{challan.address}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">City: </span>
+                    <span>{challan.consigneeCity}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Postal Code: </span>
+                    <span>{challan.consigneePostal}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Country: </span>
+                    <span>{challan.consigneeCountry}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Phone: </span>
+                    <span>{challan.consigneePhone}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold">Email: </span>
+                    <a
+                      href={`mailto:${challan.consigneeEmail}`}
+                      className="text-blue-700 underline"
+                    >
+                      {challan.consigneeEmail}
+                    </a>
+                  </div>
+                  <div>
+                    <span className="font-bold">Tax ID/EIN: </span>
+                    <span>{challan.consigneeTaxId}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Origin / Manufacturer & MID Code Row */}
+          <div className="border-b-2 border-black grid grid-cols-3 text-xs bg-white">
+            <div className="col-span-2 border-r-2 border-black p-1.5 px-2.5 flex items-center">
+              <span className="font-extrabold text-black uppercase tracking-tight mr-2">
+                COUNTRY OF ORIGIN/MANUFACTURER:
+              </span>
+              <span className="font-bold text-black uppercase">
+                {challan.countryOfOrigin}
+              </span>
+            </div>
+            <div className="p-1 flex flex-col justify-center text-center">
+              <div className="font-bold text-xs text-black">MID Code:</div>
+              <div className="font-bold text-xs text-black tracking-wider">
+                {challan.midCode}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4: PURPOSE & TOTAL WEIGHT Row */}
+          <div className="border-b-2 border-black grid grid-cols-3 text-xs bg-white">
+            <div className="col-span-2 border-r-2 border-black p-1.5 px-2.5 flex items-center">
+              <span className="font-bold text-black uppercase tracking-wider mr-2">
+                PURPOSE :
+              </span>
+              <span className="font-semibold text-black uppercase">
+                {challan.purpose}
+              </span>
+            </div>
+            <div className="p-1.5 px-2.5 flex items-center">
+              <span className="font-bold text-black uppercase tracking-wider mr-2">
+                TOTAL WEIGHT :
+              </span>
+              <span className="font-semibold text-black uppercase">
+                {challan.totalWeight || ''}
+              </span>
+            </div>
+          </div>
+
+          {/* Row 5: Goods Table */}
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b-2 border-black text-black font-extrabold uppercase text-center text-[10.5px]">
+                <th className="py-2 px-3 border-r-2 border-black text-center w-[48%]">
+                  DESCRIPTION OF GOODS
+                </th>
+                <th className="py-2 px-2 border-r-2 border-black text-center w-[20%]">
+                  Harmonized Codes
+                </th>
+                <th className="py-2 px-1 border-r-2 border-black text-center w-[10%]">
+                  QUANTITY
+                  <br />
+                  (PCS)
+                </th>
+                <th className="py-2 px-1 border-r-2 border-black text-center w-[10%]">
+                  UNIT
+                  <br />
+                  Value
+                  <br />
+                  (USD)
+                </th>
+                <th className="py-2 px-2 text-center w-[12%]">
+                  Total Value (USD)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {challan.items.map((item, idx) => (
+                <tr
+                  key={idx}
+                  className="border-b border-black text-xs text-black"
+                >
+                  <td className="py-1.5 px-3 border-r-2 border-black font-normal">
+                    {item.particular}
+                  </td>
+                  <td className="py-1.5 px-2 border-r-2 border-black text-center font-normal">
+                    {item.harmonizedCode || '-'}
+                  </td>
+                  <td className="py-1.5 px-1 border-r-2 border-black text-center font-medium">
+                    {item.qty}
+                  </td>
+                  <td className="py-1.5 px-1 border-r-2 border-black text-center font-normal">
+                    ${Number(item.unitValueUsd || 1).toFixed(2)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-medium">
+                    <div className="flex justify-between">
+                      <span>$</span>
+                      <span>{Number(item.totalValueUsd || 0).toFixed(2)}</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {/* Blank Row from sample template */}
+              <tr className="border-b-2 border-black h-7 bg-white">
+                <td className="border-r-2 border-black"></td>
+                <td className="border-r-2 border-black"></td>
+                <td className="border-r-2 border-black"></td>
+                <td className="border-r-2 border-black"></td>
+                <td></td>
+              </tr>
+
+              {/* Summary / Total Row */}
+              <tr className="border-b-2 border-black font-bold text-xs bg-white">
+                <td
+                  colSpan={2}
+                  className="py-2 px-3 border-r-2 border-black text-left"
+                >
+                  <div className="flex items-center">
+                    <span className="font-extrabold text-black uppercase tracking-wider mr-2">
+                      TOTAL VALUE (IN WORD):
+                    </span>
+                    <span className="font-bold text-black">
+                      {challan.totalValueInWords || `$ ${challan.totalAmountUsd.toFixed(2)} Dollar Only.`}
+                    </span>
+                  </div>
+                </td>
+                <td
+                  colSpan={2}
+                  className="py-2 px-2 border-r-2 border-black text-center font-extrabold text-black"
+                >
+                  Total Value (USD)
+                </td>
+                <td className="py-2 px-3 text-right font-extrabold text-black">
+                  <div className="flex justify-between">
+                    <span>$</span>
+                    <span>{Number(challan.totalAmountUsd || 0).toFixed(2)}</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Row 6: SHOWING VALUE ONLY FOR CUSTOMS PURPOSE (Grey banner) */}
+          <div className="bg-[#e9ecef] py-1.5 text-center">
+            <span className="text-xs sm:text-sm font-extrabold tracking-wide uppercase text-black">
+              SHOWING VALUE ONLY FOR CUSTOMS PURPOSE
+            </span>
+          </div>
+        </div>
+
+        {/* 3. Bottom Disclaimer Note */}
+        <div className="mt-3 text-[10.5px] font-bold text-black leading-snug">
+          {challan.notes ||
+            '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.'}
+        </div>
+
+        {/* 4. Authorised Signatory Block (Matches Picture 1) */}
+        <div className="mt-6 text-xs text-black leading-relaxed space-y-0.5">
+          <div className="font-extrabold text-black">Authorised Signatory</div>
+          <div className="font-bold text-black">For Apparel Sourcing Int&apos;l Inc</div>
+          <div className="font-medium text-slate-800">Name: Mr.Srabon Purification</div>
+          <div className="font-medium text-slate-800">Phn: +8801774-109199</div>
+          <div className="font-medium text-slate-800">E-mail: courier@apparelsourcingint.com</div>
+        </div>
       </div>
     </div>
   );

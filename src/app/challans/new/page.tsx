@@ -11,7 +11,6 @@ export default async function NewChallanPage() {
     redirect('/login');
   }
 
-  // Both ADMIN and USER can create challans
-
-  return <ChallanForm />;
+  // Both ADMIN and USER can create and save new invoices
+  return <ChallanForm currentUserRole={session.role} />;
 }

@@ -1,35 +1,62 @@
 import ExcelJS from 'exceljs';
 import { formatChallanDate } from './challan-utils';
 
-export interface ChallanExportData {
+export interface CommercialInvoiceExportData {
   challanNo: string;
-  name: string;
-  address: string;
-  refNo?: string | null;
-  fromName: string;
-  isReturnable: boolean;
-  senderSign: string;
-  receiverName?: string | null;
+  invoiceNo?: string | null;
+  awbNo?: string | null;
+  totalWeight?: string | null;
   date: Date | string;
-  totalQty: number;
-  totalYdsKg: number;
+
+  shipperCompany: string;
+  shipperAttn?: string | null;
+  shipperAddress: string;
+  shipperCity: string;
+  shipperPostalCode: string;
+  shipperCountry: string;
+  shipperPhone: string;
+  shipperEmail: string;
+
+  manufCompany: string;
+  manufAddress: string;
+  manufCity: string;
+  manufPostalCode: string;
+  manufCountry: string;
+
+  name: string; // consignee company
+  address: string;
+  consigneeAttn?: string | null;
+  consigneeCity?: string | null;
+  consigneePostal?: string | null;
+  consigneeCountry?: string | null;
+  consigneePhone?: string | null;
+  consigneeEmail?: string | null;
+  consigneeTaxId?: string | null;
+
+  countryOfOrigin: string;
+  midCode: string;
+  purpose: string;
+  totalValueInWords?: string | null;
+  totalAmountUsd: number;
   notes?: string | null;
+
   items: {
     slNo: number;
     particular: string;
+    harmonizedCode?: string | null;
     qty?: number | null;
     unit?: string | null;
-    ydsKg?: number | null;
-    ydsUnit?: string | null;
+    unitValueUsd?: number | null;
+    totalValueUsd?: number | null;
   }[];
 }
 
-export async function generateChallanExcel(data: ChallanExportData): Promise<Buffer> {
+export async function generateChallanExcel(data: CommercialInvoiceExportData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Apparel Sourcing International Inc';
+  workbook.creator = "Apparel Sourcing Int'l Inc.";
   workbook.created = new Date();
 
-  const worksheet = workbook.addWorksheet('CHALLAN', {
+  const worksheet = workbook.addWorksheet('COMMERCIAL INVOICE', {
     pageSetup: {
       paperSize: 9, // A4
       orientation: 'portrait',
@@ -37,8 +64,8 @@ export async function generateChallanExcel(data: ChallanExportData): Promise<Buf
       fitToWidth: 1,
       fitToHeight: 1,
       margins: {
-        left: 0.4,
-        right: 0.4,
+        left: 0.3,
+        right: 0.3,
         top: 0.4,
         bottom: 0.4,
         header: 0.2,
@@ -49,188 +76,332 @@ export async function generateChallanExcel(data: ChallanExportData): Promise<Buf
 
   // Set column widths
   worksheet.columns = [
-    { width: 8 },  // A: Sl.No
-    { width: 35 }, // B: Particulars
-    { width: 12 }, // C: Qty
-    { width: 10 }, // D: Unit
-    { width: 14 }, // E: YDS/KG
-    { width: 10 }, // F: Yds Unit
+    { width: 42 }, // A: Description of Goods / Shipper
+    { width: 22 }, // B: Harmonized Codes / Manufacturer
+    { width: 14 }, // C: Quantity (PCS) / Consignee left
+    { width: 16 }, // D: UNIT Value (USD)
+    { width: 18 }, // E: Total Value (USD)
   ];
 
   const formattedDate = formatChallanDate(data.date);
 
-  // Helper function to build one slip
-  const renderSlip = (startRow: number) => {
-    // 1. Company Header
-    worksheet.mergeCells(`A${startRow}:F${startRow}`);
-    const companyCell = worksheet.getCell(`A${startRow}`);
-    companyCell.value = 'Apparel Sourcing International Inc';
-    companyCell.font = { name: 'Calibri', size: 14, bold: true };
-    companyCell.alignment = { horizontal: 'center' };
+  // Row 1: Company Title
+  worksheet.mergeCells('A1:E1');
+  const titleCell = worksheet.getCell('A1');
+  titleCell.value = "Apparel Sourcing Int'l Inc.";
+  titleCell.font = { name: 'Arial', size: 16, bold: true };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  worksheet.getRow(1).height = 30;
 
-    worksheet.mergeCells(`A${startRow + 1}:F${startRow + 1}`);
-    const addressCell = worksheet.getCell(`A${startRow + 1}`);
-    addressCell.value = 'Anukul, House# 30, Apt# B-3, (3rd Floor) Western Road, Banani DOHS, Dhaka-1206, Bangladesh.\nPh: 880-2-8715826, 8715827, 8715779';
-    addressCell.font = { name: 'Calibri', size: 9 };
-    addressCell.alignment = { horizontal: 'center', wrapText: true };
-    worksheet.getRow(startRow + 1).height = 24;
+  // Row 2: Sub-banner "Commercial Invoice"
+  worksheet.mergeCells('A2:E2');
+  const subBanner = worksheet.getCell('A2');
+  subBanner.value = 'Commercial Invoice';
+  subBanner.font = { name: 'Arial', size: 12, bold: true };
+  subBanner.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE9ECEF' },
+  };
+  subBanner.alignment = { horizontal: 'center', vertical: 'middle' };
+  subBanner.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+  worksheet.getRow(2).height = 22;
 
-    // 2. Title & Challan No
-    const titleRow = startRow + 3;
-    worksheet.mergeCells(`B${titleRow}:D${titleRow}`);
-    const challanTitle = worksheet.getCell(`B${titleRow}`);
-    challanTitle.value = 'CHALLAN';
-    challanTitle.font = { name: 'Calibri', size: 14, bold: true, underline: true };
-    challanTitle.alignment = { horizontal: 'center' };
-
-    worksheet.getCell(`E${titleRow}`).value = 'Challan No:';
-    worksheet.getCell(`E${titleRow}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.getCell(`F${titleRow}`).value = data.challanNo;
-    worksheet.getCell(`F${titleRow}`).font = { name: 'Calibri', size: 11, bold: true };
-
-    // 3. Name, Date, Address, Ref No
-    const metaRow1 = startRow + 4;
-    worksheet.getCell(`A${metaRow1}`).value = 'Name      :';
-    worksheet.getCell(`A${metaRow1}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.mergeCells(`B${metaRow1}:D${metaRow1}`);
-    worksheet.getCell(`B${metaRow1}`).value = data.name;
-    worksheet.getCell(`B${metaRow1}`).font = { name: 'Calibri', size: 10 };
-
-    worksheet.getCell(`E${metaRow1}`).value = 'Date         :';
-    worksheet.getCell(`E${metaRow1}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.getCell(`F${metaRow1}`).value = formattedDate;
-    worksheet.getCell(`F${metaRow1}`).font = { name: 'Calibri', size: 10 };
-
-    const metaRow2 = startRow + 5;
-    worksheet.getCell(`A${metaRow2}`).value = 'Address  :';
-    worksheet.getCell(`A${metaRow2}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.mergeCells(`B${metaRow2}:D${metaRow2}`);
-    worksheet.getCell(`B${metaRow2}`).value = data.address;
-    worksheet.getCell(`B${metaRow2}`).font = { name: 'Calibri', size: 10 };
-
-    worksheet.getCell(`E${metaRow2}`).value = 'Ref. No.  :';
-    worksheet.getCell(`E${metaRow2}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.getCell(`F${metaRow2}`).value = data.refNo || '-';
-    worksheet.getCell(`F${metaRow2}`).font = { name: 'Calibri', size: 10 };
-
-    // 4. Table Header
-    const tableHeaderRow = startRow + 7;
-    const headers = ['Sl.No', 'Particulars', 'Qty.', 'Unit', 'YDS/KG', 'Unit'];
-    const cols = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-    cols.forEach((col, idx) => {
-      const cell = worksheet.getCell(`${col}${tableHeaderRow}`);
-      cell.value = headers[idx];
-      cell.font = { name: 'Calibri', size: 10, bold: true };
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFF2F2F2' },
-      };
-      cell.alignment = { horizontal: idx === 1 ? 'left' : 'center', vertical: 'middle' };
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' },
-      };
-    });
-
-    // 5. Table Rows (dynamic based on actual item count)
-    const itemCount = Math.max(data.items.length, 1); // At least 1 row
-    const itemsStartRow = tableHeaderRow + 1;
-    for (let i = 0; i < itemCount; i++) {
-      const currentRow = itemsStartRow + i;
-      const item = data.items[i];
-
-      worksheet.getCell(`A${currentRow}`).value = i + 1;
-      worksheet.getCell(`B${currentRow}`).value = item ? item.particular : '';
-      worksheet.getCell(`C${currentRow}`).value = item && item.qty ? item.qty : '';
-      worksheet.getCell(`D${currentRow}`).value = item && item.qty ? (item.unit || 'Pcs') : '';
-      worksheet.getCell(`E${currentRow}`).value = item && item.ydsKg !== null && item.ydsKg !== undefined ? item.ydsKg : '';
-      worksheet.getCell(`F${currentRow}`).value = item && item.ydsKg ? (item.ydsUnit || 'yds') : '';
-
-      cols.forEach((col, idx) => {
-        const cell = worksheet.getCell(`${col}${currentRow}`);
-        cell.font = { name: 'Calibri', size: 10 };
-        cell.alignment = { horizontal: idx === 1 ? 'left' : 'center', vertical: 'middle' };
-        cell.border = {
-          left: { style: 'thin' },
-          right: { style: 'thin' },
-          bottom: i === itemCount - 1 ? { style: 'thin' } : { style: 'dotted' },
-        };
-      });
-    }
-
-    // 6. From & Returnable row
-    const footerMetaRow = itemsStartRow + itemCount;
-    worksheet.getCell(`B${footerMetaRow}`).value = `From: ${data.fromName}`;
-    worksheet.getCell(`B${footerMetaRow}`).font = { name: 'Calibri', size: 10, bold: true };
-
-    const statusRow = footerMetaRow + 1;
-    worksheet.getCell(`B${statusRow}`).value = data.isReturnable ? '(Returnable)' : '(Not Returnable)';
-    worksheet.getCell(`B${statusRow}`).font = { name: 'Calibri', size: 10, bold: true, italic: true };
-    worksheet.getCell(`B${statusRow}`).alignment = { horizontal: 'center' };
-
-    // Total Row
-    worksheet.getCell(`B${statusRow}`).border = { bottom: { style: 'thin' } };
-    worksheet.getCell(`C${statusRow}`).value = `Total- ${data.totalQty}`;
-    worksheet.getCell(`C${statusRow}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.getCell(`D${statusRow}`).value = 'pcs';
-    worksheet.getCell(`D${statusRow}`).font = { name: 'Calibri', size: 10 };
-
-    worksheet.getCell(`E${statusRow}`).value = `${data.totalYdsKg}`;
-    worksheet.getCell(`E${statusRow}`).font = { name: 'Calibri', size: 10, bold: true };
-    worksheet.getCell(`F${statusRow}`).value = 'yds';
-    worksheet.getCell(`F${statusRow}`).font = { name: 'Calibri', size: 10 };
-
-    ['C', 'D', 'E', 'F'].forEach((col) => {
-      worksheet.getCell(`${col}${statusRow}`).border = {
-        top: { style: 'thin' },
-        bottom: { style: 'double' },
-      };
-    });
-
-    // 7. Notes
-    const noteRow = statusRow + 1;
-    worksheet.mergeCells(`A${noteRow}:F${noteRow}`);
-    const noteCell = worksheet.getCell(`A${noteRow}`);
-    noteCell.value = data.notes || '1) Receive the above goods in good condition.';
-    noteCell.font = { name: 'Calibri', size: 9, italic: true };
-
-    // 8. Signatures
-    const signRow = noteRow + 3;
-    worksheet.mergeCells(`D${signRow}:F${signRow}`);
-    const senderCell = worksheet.getCell(`D${signRow}`);
-    senderCell.value = data.senderSign || 'Srabon (01774-109199)';
-    senderCell.font = { name: 'Calibri', size: 9, bold: true };
-    senderCell.alignment = { horizontal: 'center' };
-
-    const signBottomRow = signRow + 1;
-    worksheet.mergeCells(`A${signBottomRow}:C${signBottomRow}`);
-    const receiverSign = worksheet.getCell(`A${signBottomRow}`);
-    receiverSign.value = data.receiverName
-      ? `Receiver's Signature / Phn: ${data.receiverName}`
-      : "Receiver's Signature / Phn: ___________________";
-    receiverSign.font = { name: 'Calibri', size: 9 };
-
-    worksheet.mergeCells(`D${signBottomRow}:F${signBottomRow}`);
-    const companySign = worksheet.getCell(`D${signBottomRow}`);
-    companySign.value = "For-Apparel Sourcing int'l inc";
-    companySign.font = { name: 'Calibri', size: 9, bold: true };
-    companySign.alignment = { horizontal: 'center' };
+  // Row 3: AWB NO, INVOICE NO & DATE
+  const awbCell = worksheet.getCell('A3');
+  awbCell.value = `AWB NO :   ${data.awbNo || ''}`;
+  awbCell.font = { name: 'Arial', size: 10, bold: true };
+  awbCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  awbCell.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
   };
 
-  // Render First Copy (Top)
-  renderSlip(1);
+  worksheet.mergeCells('B3:C3');
+  const invCell = worksheet.getCell('B3');
+  invCell.value = `INVOICE NO :   ${data.invoiceNo || data.challanNo}`;
+  invCell.font = { name: 'Arial', size: 10, bold: true };
+  invCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  invCell.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
 
-  // Calculate dynamic second copy start row based on actual item count
-  // Each slip takes: 7 header rows + 1 table header + itemCount data rows + 6 footer rows = 14 + itemCount
-  const slipHeight = 14 + Math.max(data.items.length, 1);
-  const secondSlipStart = slipHeight + 3; // 3 row gap between slips
+  worksheet.mergeCells('D3:E3');
+  const dateCell = worksheet.getCell('D3');
+  dateCell.value = `DATE :   ${formattedDate}`;
+  dateCell.font = { name: 'Arial', size: 10, bold: true };
+  dateCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  dateCell.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+  worksheet.getRow(3).height = 20;
 
-  // Render Second Copy (Bottom - "Same to same" on single A4 sheet)
-  renderSlip(secondSlipStart);
+  // Row 4: Column Headers for 3 Parties
+  const hShipper = worksheet.getCell('A4');
+  hShipper.value = 'Shipper Name & Address';
+  hShipper.font = { name: 'Arial', size: 10, bold: true };
+  hShipper.alignment = { horizontal: 'center' };
+  hShipper.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'thin' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+
+  const hManuf = worksheet.getCell('B4');
+  hManuf.value = 'Manufacturer Name & Address';
+  hManuf.font = { name: 'Arial', size: 10, bold: true };
+  hManuf.alignment = { horizontal: 'center' };
+  hManuf.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'thin' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+
+  worksheet.mergeCells('C4:E4');
+  const hConsignee = worksheet.getCell('C4');
+  hConsignee.value = 'Consignee Name & Address';
+  hConsignee.font = { name: 'Arial', size: 10, bold: true };
+  hConsignee.alignment = { horizontal: 'right' };
+  hConsignee.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'thin' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+  worksheet.getRow(4).height = 20;
+
+  // Row 5: 3 Parties Body Content
+  const shipperText = [
+    `Company: ${data.shipperCompany}`,
+    data.shipperAttn ? `Attn: ${data.shipperAttn}` : '',
+    `Address: ${data.shipperAddress}`,
+    `City: ${data.shipperCity}`,
+    `Postal Code: ${data.shipperPostalCode}`,
+    `Country: ${data.shipperCountry}`,
+    `Phone: ${data.shipperPhone}`,
+    `Email: ${data.shipperEmail}`,
+  ].filter(Boolean).join('\n');
+
+  const manufText = [
+    `Company: ${data.manufCompany}`,
+    `Address: ${data.manufAddress}`,
+    `City: ${data.manufCity}`,
+    `Postal Code: ${data.manufPostalCode}`,
+    `Country: ${data.manufCountry}`,
+  ].join('\n');
+
+  const consigneeText = [
+    `Company: ${data.name}`,
+    data.consigneeAttn ? `Attn: ${data.consigneeAttn}` : '',
+    `Address: ${data.address}`,
+    `City: ${data.consigneeCity || ''}`,
+    `Postal Code: ${data.consigneePostal || ''}`,
+    `Country: ${data.consigneeCountry || ''}`,
+    `Phone: ${data.consigneePhone || ''}`,
+    `Email: ${data.consigneeEmail || ''}`,
+    `Tax ID/EIN: ${data.consigneeTaxId || ''}`,
+  ].filter(Boolean).join('\n');
+
+  const cellA5 = worksheet.getCell('A5');
+  cellA5.value = shipperText;
+  cellA5.font = { name: 'Arial', size: 9 };
+  cellA5.alignment = { wrapText: true, vertical: 'top' };
+  cellA5.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+
+  const cellB5 = worksheet.getCell('B5');
+  cellB5.value = manufText;
+  cellB5.font = { name: 'Arial', size: 9 };
+  cellB5.alignment = { wrapText: true, vertical: 'top' };
+  cellB5.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+
+  worksheet.mergeCells('C5:E5');
+  const cellC5 = worksheet.getCell('C5');
+  cellC5.value = consigneeText;
+  cellC5.font = { name: 'Arial', size: 9 };
+  cellC5.alignment = { wrapText: true, vertical: 'top' };
+  cellC5.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+  worksheet.getRow(5).height = 120;
+
+  // Row 6: COUNTRY OF ORIGIN & MID CODE
+  worksheet.mergeCells('A6:B6');
+  const originCell = worksheet.getCell('A6');
+  originCell.value = `COUNTRY OF ORIGIN/MANUFACTURER: ${data.countryOfOrigin}`;
+  originCell.font = { name: 'Arial', size: 9.5, bold: true };
+  originCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  originCell.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+
+  worksheet.mergeCells('C6:E6');
+  const midCell = worksheet.getCell('C6');
+  midCell.value = `MID Code:\n${data.midCode}`;
+  midCell.font = { name: 'Arial', size: 9.5, bold: true };
+  midCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  midCell.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+  worksheet.getRow(6).height = 25;
+
+  // Row 7: PURPOSE & TOTAL WEIGHT
+  worksheet.mergeCells('A7:B7');
+  const purposeCell = worksheet.getCell('A7');
+  purposeCell.value = `PURPOSE :  ${data.purpose}`;
+  purposeCell.font = { name: 'Arial', size: 9.5, bold: true };
+  purposeCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  purposeCell.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+
+  worksheet.mergeCells('C7:E7');
+  const weightCell = worksheet.getCell('C7');
+  weightCell.value = `TOTAL WEIGHT :  ${data.totalWeight || ''}`;
+  weightCell.font = { name: 'Arial', size: 9.5, bold: true };
+  weightCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  weightCell.border = { left: { style: 'medium' }, right: { style: 'medium' }, bottom: { style: 'medium' } };
+  worksheet.getRow(7).height = 20;
+
+  // Row 8: Goods Table Header
+  const headers = [
+    'DESCRIPTION OF GOODS',
+    'Harmonized Codes',
+    'QUANTITY (PCS)',
+    'UNIT Value (USD)',
+    'Total Value (USD)',
+  ];
+  const cols = ['A', 'B', 'C', 'D', 'E'];
+
+  cols.forEach((col, idx) => {
+    const cell = worksheet.getCell(`${col}8`);
+    cell.value = headers[idx];
+    cell.font = { name: 'Arial', size: 9.5, bold: true };
+    cell.alignment = { horizontal: idx === 0 ? 'center' : 'center', vertical: 'middle', wrapText: true };
+    cell.border = {
+      top: { style: 'medium' },
+      bottom: { style: 'medium' },
+      left: { style: 'medium' },
+      right: { style: 'medium' },
+    };
+  });
+  worksheet.getRow(8).height = 28;
+
+  // Data rows
+  let currentRow = 9;
+  data.items.forEach((item) => {
+    worksheet.getCell(`A${currentRow}`).value = item.particular;
+    worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.getCell(`B${currentRow}`).value = item.harmonizedCode || '-';
+    worksheet.getCell(`B${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.getCell(`C${currentRow}`).value = item.qty || 0;
+    worksheet.getCell(`C${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.getCell(`D${currentRow}`).value = `$${Number(item.unitValueUsd || 1).toFixed(2)}`;
+    worksheet.getCell(`D${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.getCell(`E${currentRow}`).value = `$ ${Number(item.totalValueUsd || 0).toFixed(2)}`;
+    worksheet.getCell(`E${currentRow}`).alignment = { horizontal: 'right', vertical: 'middle' };
+
+    cols.forEach((col) => {
+      const cell = worksheet.getCell(`${col}${currentRow}`);
+      cell.font = { name: 'Arial', size: 9 };
+      cell.border = {
+        left: { style: 'medium' },
+        right: { style: 'medium' },
+        bottom: { style: 'thin' },
+      };
+    });
+    worksheet.getRow(currentRow).height = 22;
+    currentRow++;
+  });
+
+  // Blank row
+  cols.forEach((col) => {
+    const cell = worksheet.getCell(`${col}${currentRow}`);
+    cell.value = '';
+    cell.border = {
+      left: { style: 'medium' },
+      right: { style: 'medium' },
+      bottom: { style: 'thin' },
+    };
+  });
+  worksheet.getRow(currentRow).height = 18;
+  currentRow++;
+
+  // Summary Row
+  worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
+  const wordsCell = worksheet.getCell(`A${currentRow}`);
+  wordsCell.value = `TOTAL VALUE (IN WORD):   ${data.totalValueInWords || `$ ${data.totalAmountUsd.toFixed(2)} Dollar Only.`}`;
+  wordsCell.font = { name: 'Arial', size: 9.5, bold: true };
+  wordsCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  wordsCell.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+
+  worksheet.mergeCells(`C${currentRow}:D${currentRow}`);
+  const totalLabel = worksheet.getCell(`C${currentRow}`);
+  totalLabel.value = 'Total Value (USD)';
+  totalLabel.font = { name: 'Arial', size: 9.5, bold: true };
+  totalLabel.alignment = { horizontal: 'center', vertical: 'middle' };
+  totalLabel.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+
+  const totalValCell = worksheet.getCell(`E${currentRow}`);
+  totalValCell.value = `$ ${Number(data.totalAmountUsd || 0).toFixed(2)}`;
+  totalValCell.font = { name: 'Arial', size: 10, bold: true };
+  totalValCell.alignment = { horizontal: 'right', vertical: 'middle' };
+  totalValCell.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+  worksheet.getRow(currentRow).height = 24;
+  currentRow++;
+
+  // SHOWING VALUE ONLY FOR CUSTOMS PURPOSE (Shaded Banner)
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
+  const customsBanner = worksheet.getCell(`A${currentRow}`);
+  customsBanner.value = 'SHOWING VALUE ONLY FOR CUSTOMS PURPOSE';
+  customsBanner.font = { name: 'Arial', size: 9.5, bold: true };
+  customsBanner.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE9ECEF' },
+  };
+  customsBanner.alignment = { horizontal: 'center', vertical: 'middle' };
+  customsBanner.border = {
+    top: { style: 'medium' },
+    bottom: { style: 'medium' },
+    left: { style: 'medium' },
+    right: { style: 'medium' },
+  };
+  worksheet.getRow(currentRow).height = 20;
+  currentRow++;
+
+  // Disclaimer Note
+  worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
+  const noteCell = worksheet.getCell(`A${currentRow}`);
+  noteCell.value = data.notes || '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.';
+  noteCell.font = { name: 'Arial', size: 8.5, bold: true };
+  noteCell.alignment = { horizontal: 'left', vertical: 'middle' };
+  worksheet.getRow(currentRow).height = 22;
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(buffer);

@@ -28,20 +28,98 @@ model ParticularSuggestion {
   createdAt DateTime @default(now())
 }
 
+model FieldSuggestion {
+  id        String   @id @default(cuid())
+  field     String   // e.g. "name", "address", "consigneeAttn", "consigneeCity", "consigneePostal", "consigneeCountry", "consigneePhone", "consigneeEmail", "consigneeTaxId", "particular", "harmonizedCode", "countryOfOrigin", "midCode", "purpose", "shipperCompany", "manufCompany"
+  value     String
+  createdAt DateTime @default(now())
+
+  @@unique([field, value])
+  @@index([field])
+}
+
+model ConsigneeProfile {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  address   String
+  attn      String?
+  city      String?
+  postal    String?
+  country   String?
+  phone     String?
+  email     String?
+  taxId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShipperProfile {
+  id         String   @id @default(cuid())
+  company    String   @unique
+  attn       String?
+  address    String   @default("")
+  city       String   @default("")
+  postalCode String   @default("")
+  country    String   @default("")
+  phone      String   @default("")
+  email      String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model Challan {
   id           String        @id @default(cuid())
-  challanNo    String        @unique // e.g. "ASI-2087"
-  name         String
-  address      String
+  challanNo    String        @unique // Invoice No: e.g. "Asi-02564"
+  invoiceNo    String?       // "Asi-02564"
+  awbNo        String?       // AWB No: user input or empty if blank
+  totalWeight  String?       // Total Weight: e.g. "1.50 KG"
+  date         DateTime      @default(now())
+
+  // Shipper details
+  shipperCompany    String   @default("Apparel Sourcing Int'l Inc")
+  shipperAttn       String?  @default("Gunjan")
+  shipperAddress    String   @default("House#30, 3rd Floor, Western Road, Banani DOHS")
+  shipperCity       String   @default("Dhaka")
+  shipperPostalCode String   @default("1206")
+  shipperCountry    String   @default("Bangladesh")
+  shipperPhone      String   @default("880 1774-109199")
+  shipperEmail      String   @default("afaz@apparelsourcingint.com")
+
+  // Manufacturer details
+  manufCompany    String   @default("PACIFIC BLUE JEANS WEAR LTD (Al muslim group)")
+  manufAddress    String   @default("A-8/1, JALESHWAR, SAVAR")
+  manufCity       String   @default("Dhaka")
+  manufPostalCode String   @default("1340")
+  manufCountry    String   @default("Bangladesh")
+
+  // Consignee details
+  name            String   // Consignee Company Name
+  address         String   // Consignee Address
+  consigneeAttn   String?  @default("Nicole / Joey")
+  consigneeCity   String?  @default("New York")
+  consigneePostal String?  @default("NY 10018")
+  consigneeCountry String? @default("USA")
+  consigneePhone  String?  @default("212-279-5526")
+  consigneeEmail  String?  @default("nwezowicz@btexusa.com")
+  consigneeTaxId  String?  @default("320249666")
+
+  // Origin & Metadata
+  countryOfOrigin   String   @default("BANGLADESH")
+  midCode           String   @default("BDASIINC1206DHA")
+  purpose           String   @default("SAMPLE FOR APPROVAL PURPOSE")
+  totalValueInWords String?  @default("$ 11.00 Dollar Only.")
+  totalAmountUsd    Float    @default(0.0)
+
+  // Legacy fields kept for backward compatibility
   refNo        String?
   fromName     String        @default("Ms.Shamoly")
-  isReturnable Boolean       @default(true) // true = (Returnable), false = (Not Returnable)
+  isReturnable Boolean       @default(true)
   senderSign   String        @default("Srabon (01774-109199)")
-  receiverName String?       // Receiver's Name / Phone beside signature
-  date         DateTime      @default(now())
+  receiverName String?
   totalQty     Int           @default(0)
   totalYdsKg   Float         @default(0.0)
-  notes        String?       @default("1) Receive the above goods in good condition.")
+  notes        String?       @default("** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.")
+
   createdById  String
   createdBy    User          @relation(fields: [createdById], references: [id])
   items        ChallanItem[]
@@ -50,14 +128,17 @@ model Challan {
 }
 
 model ChallanItem {
-  id         String   @id @default(cuid())
-  challanId  String
-  challan    Challan  @relation(fields: [challanId], references: [id], onDelete: Cascade)
-  slNo       Int
-  particular String
-  qty        Int?     @default(0)
-  unit       String?  @default("Pcs") // e.g. Pcs, Box, Poly, etc.
-  ydsKg      Float?   @default(0.0)
-  ydsUnit    String?  @default("yds") // e.g. yds, kg
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  challanId       String
+  challan         Challan  @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  slNo            Int
+  particular      String   // DESCRIPTION OF GOODS
+  harmonizedCode  String?  @default("")
+  qty             Int?     @default(0)
+  unit            String?  @default("PCS")
+  unitValueUsd    Float?   @default(1.0)
+  totalValueUsd   Float?   @default(0.0)
+  ydsKg           Float?   @default(0.0)
+  ydsUnit         String?  @default("yds")
+  createdAt       DateTime @default(now())
 }

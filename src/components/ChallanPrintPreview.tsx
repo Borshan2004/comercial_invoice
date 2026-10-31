@@ -559,8 +559,8 @@ export default function ChallanPrintPreview({
             '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.'}
         </div>
 
-        {/* 4. Authorised Signatory Block (Matches Picture 1) */}
-        <div className="mt-6 text-xs text-black leading-relaxed space-y-0.5">
+        {/* 4. Authorised Signatory Block (Matches Picture 1 with ample signing space on top) */}
+        <div className="mt-14 sm:mt-16 text-xs text-black leading-relaxed space-y-0.5">
           <div className="font-extrabold text-black">Authorised Signatory</div>
           <div className="font-bold text-black">For Apparel Sourcing Int&apos;l Inc</div>
           <div className="font-medium text-slate-800">Name: Mr.Srabon Purification</div>

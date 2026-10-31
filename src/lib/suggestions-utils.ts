@@ -104,6 +104,30 @@ export async function autoSaveInvoiceSuggestions(invoiceData: {
     }
   }
 
+  // 1c. Save or update Manufacturer Profile for auto-filling all manufacturer company details
+  if (invoiceData.manufCompany && typeof invoiceData.manufCompany === 'string' && invoiceData.manufCompany.trim().length > 0) {
+    try {
+      await prisma.manufacturerProfile.upsert({
+        where: { company: invoiceData.manufCompany.trim() },
+        update: {
+          address: invoiceData.manufAddress?.trim() || '',
+          city: invoiceData.manufCity?.trim() || '',
+          postalCode: invoiceData.manufPostalCode?.trim() || '',
+          country: invoiceData.manufCountry?.trim() || '',
+        },
+        create: {
+          company: invoiceData.manufCompany.trim(),
+          address: invoiceData.manufAddress?.trim() || '',
+          city: invoiceData.manufCity?.trim() || '',
+          postalCode: invoiceData.manufPostalCode?.trim() || '',
+          country: invoiceData.manufCountry?.trim() || '',
+        },
+      });
+    } catch (e) {
+      console.error('Failed to upsert manufacturer profile:', e);
+    }
+  }
+
   // 2. Save individual field suggestions
   const fieldsToRecord: Array<{ field: string; value: string }> = [];
 

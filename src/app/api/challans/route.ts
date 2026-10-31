@@ -112,11 +112,11 @@ export async function POST(request: Request) {
       consigneeEmail,
       consigneeTaxId,
       // Origin & Codes
-      countryOfOrigin = '',
-      midCode = '',
-      purpose = '',
+      countryOfOrigin = 'BANGLADESH',
+      midCode = 'BDASIINC1206DHA',
+      purpose = 'SAMPLE FOR APPROVAL PURPOSE',
       totalValueInWords,
-      notes = '',
+      notes = '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.',
       items = [],
     } = body;
 

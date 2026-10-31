@@ -67,6 +67,17 @@ model ShipperProfile {
   updatedAt  DateTime @updatedAt
 }
 
+model ManufacturerProfile {
+  id         String   @id @default(cuid())
+  company    String   @unique
+  address    String   @default("")
+  city       String   @default("")
+  postalCode String   @default("")
+  country    String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model Challan {
   id           String        @id @default(cuid())
   challanNo    String        @unique // Invoice No: e.g. "Asi-02564"

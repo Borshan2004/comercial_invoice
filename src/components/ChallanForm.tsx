@@ -48,6 +48,15 @@ interface ShipperProfile {
   email?: string | null;
 }
 
+interface ManufacturerProfile {
+  id: string;
+  company: string;
+  address: string;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+}
+
 interface GoodsItemInput {
   slNo: number;
   particular: string;
@@ -150,6 +159,10 @@ export default function ChallanForm({
   const [shipperProfiles, setShipperProfiles] = useState<ShipperProfile[]>([]);
   const [shipperAutoFilledMessage, setShipperAutoFilledMessage] = useState<string | null>(null);
 
+  // Saved Manufacturer Profiles for instant auto-fill across all manufacturer fields
+  const [manufacturerProfiles, setManufacturerProfiles] = useState<ManufacturerProfile[]>([]);
+  const [manufAutoFilledMessage, setManufAutoFilledMessage] = useState<string | null>(null);
+
   // Document identifiers (AWB, Invoice No, Total Weight & Date)
   const [awbNo, setAwbNo] = useState(initialData?.awbNo || '');
   const [invoiceNo, setInvoiceNo] = useState(
@@ -246,18 +259,19 @@ export default function ChallanForm({
     initialData?.manufCountry || ''
   );
 
-  // Origin & Codes (No default values for new form)
+  // Origin & Codes (Customs Metadata defaults restored, except Total Weight)
   const [countryOfOrigin, setCountryOfOrigin] = useState(
-    initialData?.countryOfOrigin || ''
+    initialData?.countryOfOrigin || 'BANGLADESH'
   );
   const [midCode, setMidCode] = useState(
-    initialData?.midCode || ''
+    initialData?.midCode || 'BDASIINC1206DHA'
   );
   const [purpose, setPurpose] = useState(
-    initialData?.purpose || ''
+    initialData?.purpose || 'SAMPLE FOR APPROVAL PURPOSE'
   );
   const [notes, setNotes] = useState(
-    initialData?.notes || ''
+    initialData?.notes ||
+      '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.'
   );
 
   // Goods Items List (Starts with 1 blank row for new form)
@@ -403,6 +417,29 @@ export default function ChallanForm({
         }
       })
       .catch((err) => console.error('Error fetching shippers:', err));
+
+    // 4. Fetch full manufacturer profiles for instant auto-filling across all manufacturer fields
+    fetch('/api/manufacturers')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.manufacturers && Array.isArray(data.manufacturers)) {
+          setManufacturerProfiles(data.manufacturers);
+
+          // Populate manufacturer company suggestions
+          const manufNames: string[] = data.manufacturers.map((m: ManufacturerProfile) => m.company);
+          setFieldSuggestions((prev) => {
+            const currentList = prev['manufCompany'] || [];
+            const merged = [...currentList];
+            manufNames.forEach((cn) => {
+              if (!merged.some((m) => m.value.toLowerCase() === cn.toLowerCase())) {
+                merged.push({ id: `profile-manuf-${cn}`, value: cn });
+              }
+            });
+            return { ...prev, manufCompany: merged };
+          });
+        }
+      })
+      .catch((err) => console.error('Error fetching manufacturers:', err));
   }, []);
 
   // Auto-fill all consignee fields whenever a company name matches a saved profile
@@ -445,6 +482,24 @@ export default function ChallanForm({
 
       setShipperAutoFilledMessage(`Auto-filled saved details for "${match.company}"`);
       setTimeout(() => setShipperAutoFilledMessage(null), 4000);
+    }
+  };
+
+  // Auto-fill all manufacturer fields whenever a manufacturer company name matches a saved profile
+  const applyManufacturerProfile = (companyName: string) => {
+    if (!companyName || !companyName.trim()) return;
+    const match = manufacturerProfiles.find(
+      (p) => p.company.trim().toLowerCase() === companyName.trim().toLowerCase()
+    );
+
+    if (match) {
+      if (match.address) setManufAddress(match.address);
+      if (match.city) setManufCity(match.city);
+      if (match.postalCode) setManufPostalCode(match.postalCode);
+      if (match.country) setManufCountry(match.country);
+
+      setManufAutoFilledMessage(`Auto-filled saved details for "${match.company}"`);
+      setTimeout(() => setManufAutoFilledMessage(null), 4000);
     }
   };
 
@@ -1288,7 +1343,7 @@ export default function ChallanForm({
                     : 'bg-slate-50/50 border-slate-200 space-y-2'
                 }`}>
                   <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 flex-wrap gap-1">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-wrap gap-1">
                       <span className="text-xs font-bold uppercase text-slate-700">
                         Manufacturer Information
                       </span>
@@ -1301,6 +1356,12 @@ export default function ChallanForm({
                       >
                         {showManufacturer ? 'ON' : 'OFF'}
                       </span>
+                      {manufAutoFilledMessage && (
+                        <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-800 rounded border border-emerald-300 shadow-sm animate-in fade-in duration-200">
+                          <Sparkles className="w-3 h-3 mr-1 text-emerald-600 flex-shrink-0" />
+                          {manufAutoFilledMessage}
+                        </span>
+                      )}
                     </div>
 
                     {/* Arrow button for Close & Off / Open */}
@@ -1326,11 +1387,20 @@ export default function ChallanForm({
                   {showManufacturer ? (
                     <div className="space-y-2.5 pt-1 animate-in fade-in duration-150">
                       <div>
-                        <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Company</label>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                          Company Name <span className="text-blue-600 font-normal">(auto-fills details)</span>
+                        </label>
                         <SuggestionInput
                           field="manufCompany"
                           value={manufCompany}
-                          onChange={setManufCompany}
+                          onChange={(val) => {
+                            setManufCompany(val);
+                            applyManufacturerProfile(val);
+                          }}
+                          onSelectSuggestion={(val) => {
+                            setManufCompany(val);
+                            applyManufacturerProfile(val);
+                          }}
                           suggestions={fieldSuggestions['manufCompany'] || []}
                           isAdmin={isAdmin}
                           onDeleteSuggestion={handleDeleteSuggestion}

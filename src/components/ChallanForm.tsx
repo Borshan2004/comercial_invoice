@@ -156,7 +156,7 @@ export default function ChallanForm({
     initialData?.invoiceNo || initialData?.challanNo || ''
   );
   const [totalWeight, setTotalWeight] = useState(
-    initialData?.totalWeight || '1.50 KG'
+    initialData?.totalWeight || ''
   );
   const [challanNo, setChallanNo] = useState(
     initialData?.challanNo || ''
@@ -169,36 +169,36 @@ export default function ChallanForm({
     return formatChallanDate(new Date());
   });
 
-  // Consignee fields (Primary Recipient)
+  // Consignee fields (Primary Recipient - No default values for new form)
   const [consigneeCompany, setConsigneeCompany] = useState(
-    initialData?.name || 'Bernette Textile Co.Ltd'
+    initialData?.name || ''
   );
   const [consigneeAttn, setConsigneeAttn] = useState(
-    initialData?.consigneeAttn ?? 'Nicole / Joey'
+    initialData?.consigneeAttn || ''
   );
   const [consigneeAddress, setConsigneeAddress] = useState(
-    initialData?.address || '42 West, 39th Street, 11th Floor,'
+    initialData?.address || ''
   );
   const [consigneeCity, setConsigneeCity] = useState(
-    initialData?.consigneeCity || 'New York'
+    initialData?.consigneeCity || ''
   );
   const [consigneePostal, setConsigneePostal] = useState(
-    initialData?.consigneePostal || 'NY 10018'
+    initialData?.consigneePostal || ''
   );
   const [consigneeCountry, setConsigneeCountry] = useState(
-    initialData?.consigneeCountry || 'USA'
+    initialData?.consigneeCountry || ''
   );
   const [consigneePhone, setConsigneePhone] = useState(
-    initialData?.consigneePhone || '212-279-5526'
+    initialData?.consigneePhone || ''
   );
   const [consigneeEmail, setConsigneeEmail] = useState(
-    initialData?.consigneeEmail || 'nwezowicz@btexusa.com'
+    initialData?.consigneeEmail || ''
   );
   const [consigneeTaxId, setConsigneeTaxId] = useState(
-    initialData?.consigneeTaxId || '320249666'
+    initialData?.consigneeTaxId || ''
   );
 
-  // Shipper details (Pre-filled Defaults)
+  // Shipper details (Pre-filled Defaults retained)
   const [shipperCompany, setShipperCompany] = useState(
     initialData?.shipperCompany || "Apparel Sourcing Int'l Inc"
   );
@@ -224,39 +224,43 @@ export default function ChallanForm({
     initialData?.shipperEmail || 'afaz@apparelsourcingint.com'
   );
 
-  // Manufacturer details (Pre-filled Defaults)
+  // Manufacturer details (Starts closed/off without default values, toggleable with arrow button)
+  const [showManufacturer, setShowManufacturer] = useState<boolean>(() => {
+    return Boolean(
+      initialData?.manufCompany && initialData.manufCompany.trim().length > 0
+    );
+  });
   const [manufCompany, setManufCompany] = useState(
-    initialData?.manufCompany || 'PACIFIC BLUE JEANS WEAR LTD (Al muslim group)'
+    initialData?.manufCompany || ''
   );
   const [manufAddress, setManufAddress] = useState(
-    initialData?.manufAddress || 'A-8/1, JALESHWAR, SAVAR'
+    initialData?.manufAddress || ''
   );
   const [manufCity, setManufCity] = useState(
-    initialData?.manufCity || 'Dhaka'
+    initialData?.manufCity || ''
   );
   const [manufPostalCode, setManufPostalCode] = useState(
-    initialData?.manufPostalCode || '1340'
+    initialData?.manufPostalCode || ''
   );
   const [manufCountry, setManufCountry] = useState(
-    initialData?.manufCountry || 'Bangladesh'
+    initialData?.manufCountry || ''
   );
 
-  // Origin & Codes
+  // Origin & Codes (No default values for new form)
   const [countryOfOrigin, setCountryOfOrigin] = useState(
-    initialData?.countryOfOrigin || 'BANGLADESH'
+    initialData?.countryOfOrigin || ''
   );
   const [midCode, setMidCode] = useState(
-    initialData?.midCode || 'BDASIINC1206DHA'
+    initialData?.midCode || ''
   );
   const [purpose, setPurpose] = useState(
-    initialData?.purpose || 'SAMPLE FOR APPROVAL PURPOSE'
+    initialData?.purpose || ''
   );
   const [notes, setNotes] = useState(
-    initialData?.notes ||
-      '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.'
+    initialData?.notes || ''
   );
 
-  // Goods Items List
+  // Goods Items List (Starts with 1 blank row for new form)
   const [items, setItems] = useState<GoodsItemInput[]>(() => {
     if (initialData?.items && initialData.items.length > 0) {
       return initialData.items.map((it, idx) => ({
@@ -275,30 +279,12 @@ export default function ChallanForm({
     return [
       {
         slNo: 1,
-        particular: "Sample of Men's Shorts- Woven Fabric(97% Cotton,3%Spandex)",
-        harmonizedCode: '9811.00.60',
-        qty: 6,
+        particular: '',
+        harmonizedCode: '',
+        qty: '',
         unit: 'PCS',
-        unitValueUsd: 1.0,
-        totalValueUsd: 6.0,
-      },
-      {
-        slNo: 2,
-        particular: "Sample of Men's Shorts- Woven (100%Polystar)",
-        harmonizedCode: '9607.20.90.00',
-        qty: 2,
-        unit: 'PCS',
-        unitValueUsd: 1.0,
-        totalValueUsd: 2.0,
-      },
-      {
-        slNo: 3,
-        particular: 'Sample of Trims card - J hanger,Coil nylon zipper woven label',
-        harmonizedCode: '6203.43.00.00',
-        qty: 3,
-        unit: 'PCS',
-        unitValueUsd: 1.0,
-        totalValueUsd: 3.0,
+        unitValueUsd: '',
+        totalValueUsd: 0.0,
       },
     ];
   });
@@ -640,12 +626,12 @@ export default function ChallanForm({
         shipperCountry,
         shipperPhone,
         shipperEmail,
-        // Manufacturer
-        manufCompany,
-        manufAddress,
-        manufCity,
-        manufPostalCode,
-        manufCountry,
+        // Manufacturer (sent only if active/on)
+        manufCompany: showManufacturer ? manufCompany.trim() : '',
+        manufAddress: showManufacturer ? manufAddress.trim() : '',
+        manufCity: showManufacturer ? manufCity.trim() : '',
+        manufPostalCode: showManufacturer ? manufPostalCode.trim() : '',
+        manufCountry: showManufacturer ? manufCountry.trim() : '',
         // Consignee
         name: consigneeCompany,
         address: consigneeAddress,
@@ -1133,7 +1119,7 @@ export default function ChallanForm({
           </div>
         </div>
 
-        {/* CARD 3: SHIPPER & MANUFACTURER (Accordion / Expandable with Pre-filled Defaults & Suggestions) */}
+        {/* CARD 3: SHIPPER & MANUFACTURER INFORMATION */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           <button
             type="button"
@@ -1143,10 +1129,10 @@ export default function ChallanForm({
             <div className="flex items-center flex-wrap gap-2">
               <FileCheck className="w-4 h-4 mr-2 text-blue-600" />
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Shipper, Manufacturer &amp; Customs Defaults
+                Shipper &amp; Manufacturer Details
               </span>
               <span className="text-[11px] text-slate-500 font-normal">
-                (Pre-configured with standard company details)
+                (Shipper pre-configured with company defaults; Manufacturer toggleable)
               </span>
               {shipperAutoFilledMessage && (
                 <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-800 rounded border border-emerald-300 shadow-sm animate-in fade-in duration-200">
@@ -1168,9 +1154,14 @@ export default function ChallanForm({
                 {/* Shipper */}
                 <div className="bg-slate-50 p-3.5 rounded border border-slate-200 space-y-2.5">
                   <div className="flex items-center justify-between border-b pb-1">
-                    <span className="text-xs font-bold uppercase text-slate-700 block">
-                      Shipper Information
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold uppercase text-slate-700 block">
+                        Shipper Information
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                        Default
+                      </span>
+                    </div>
                     {shipperAutoFilledMessage && (
                       <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-800 rounded border border-emerald-300 shadow-sm">
                         <Sparkles className="w-3 h-3 mr-1 text-emerald-600 flex-shrink-0" />
@@ -1291,72 +1282,131 @@ export default function ChallanForm({
                 </div>
 
                 {/* Manufacturer */}
-                <div className="bg-slate-50 p-3.5 rounded border border-slate-200 space-y-2.5">
-                  <span className="text-xs font-bold uppercase text-slate-700 block border-b pb-1">
-                    Manufacturer Information
-                  </span>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Company</label>
-                    <SuggestionInput
-                      field="manufCompany"
-                      value={manufCompany}
-                      onChange={setManufCompany}
-                      suggestions={fieldSuggestions['manufCompany'] || []}
-                      isAdmin={isAdmin}
-                      onDeleteSuggestion={handleDeleteSuggestion}
-                      onSaveSuggestion={handleSaveSuggestion}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Address</label>
-                    <SuggestionInput
-                      field="manufAddress"
-                      value={manufAddress}
-                      onChange={setManufAddress}
-                      suggestions={fieldSuggestions['manufAddress'] || []}
-                      isAdmin={isAdmin}
-                      onDeleteSuggestion={handleDeleteSuggestion}
-                      onSaveSuggestion={handleSaveSuggestion}
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">City</label>
-                      <SuggestionInput
-                        field="manufCity"
-                        value={manufCity}
-                        onChange={setManufCity}
-                        suggestions={fieldSuggestions['manufCity'] || []}
-                        isAdmin={isAdmin}
-                        onDeleteSuggestion={handleDeleteSuggestion}
-                        onSaveSuggestion={handleSaveSuggestion}
-                      />
+                <div className={`p-3.5 rounded border transition-all ${
+                  showManufacturer
+                    ? 'bg-slate-50 border-slate-300 space-y-2.5'
+                    : 'bg-slate-50/50 border-slate-200 space-y-2'
+                }`}>
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 flex-wrap gap-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold uppercase text-slate-700">
+                        Manufacturer Information
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition ${
+                          showManufacturer
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-slate-200 text-slate-600 border border-slate-300'
+                        }`}
+                      >
+                        {showManufacturer ? 'ON' : 'OFF'}
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Postal</label>
-                      <SuggestionInput
-                        field="manufPostalCode"
-                        value={manufPostalCode}
-                        onChange={setManufPostalCode}
-                        suggestions={fieldSuggestions['manufPostalCode'] || []}
-                        isAdmin={isAdmin}
-                        onDeleteSuggestion={handleDeleteSuggestion}
-                        onSaveSuggestion={handleSaveSuggestion}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Country</label>
-                      <SuggestionInput
-                        field="manufCountry"
-                        value={manufCountry}
-                        onChange={setManufCountry}
-                        suggestions={fieldSuggestions['manufCountry'] || []}
-                        isAdmin={isAdmin}
-                        onDeleteSuggestion={handleDeleteSuggestion}
-                        onSaveSuggestion={handleSaveSuggestion}
-                      />
-                    </div>
+
+                    {/* Arrow button for Close & Off / Open */}
+                    <button
+                      type="button"
+                      onClick={() => setShowManufacturer(!showManufacturer)}
+                      className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded shadow-sm transition gap-1 border ${
+                        showManufacturer
+                          ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300'
+                          : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300'
+                      }`}
+                      title={showManufacturer ? 'Close and turn off Manufacturer Information' : 'Click arrow button to open and use Manufacturer Information'}
+                    >
+                      <span>{showManufacturer ? 'Close / Off' : 'Open / On'}</span>
+                      {showManufacturer ? (
+                        <ChevronUp className="w-3.5 h-3.5 text-rose-600" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+                      )}
+                    </button>
                   </div>
+
+                  {showManufacturer ? (
+                    <div className="space-y-2.5 pt-1 animate-in fade-in duration-150">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Company</label>
+                        <SuggestionInput
+                          field="manufCompany"
+                          value={manufCompany}
+                          onChange={setManufCompany}
+                          suggestions={fieldSuggestions['manufCompany'] || []}
+                          isAdmin={isAdmin}
+                          onDeleteSuggestion={handleDeleteSuggestion}
+                          onSaveSuggestion={handleSaveSuggestion}
+                          placeholder="e.g. Factory or Manufacturer Name"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Address</label>
+                        <SuggestionInput
+                          field="manufAddress"
+                          value={manufAddress}
+                          onChange={setManufAddress}
+                          suggestions={fieldSuggestions['manufAddress'] || []}
+                          isAdmin={isAdmin}
+                          onDeleteSuggestion={handleDeleteSuggestion}
+                          onSaveSuggestion={handleSaveSuggestion}
+                          placeholder="e.g. Factory Address"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">City</label>
+                          <SuggestionInput
+                            field="manufCity"
+                            value={manufCity}
+                            onChange={setManufCity}
+                            suggestions={fieldSuggestions['manufCity'] || []}
+                            isAdmin={isAdmin}
+                            onDeleteSuggestion={handleDeleteSuggestion}
+                            onSaveSuggestion={handleSaveSuggestion}
+                            placeholder="City"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Postal</label>
+                          <SuggestionInput
+                            field="manufPostalCode"
+                            value={manufPostalCode}
+                            onChange={setManufPostalCode}
+                            suggestions={fieldSuggestions['manufPostalCode'] || []}
+                            isAdmin={isAdmin}
+                            onDeleteSuggestion={handleDeleteSuggestion}
+                            onSaveSuggestion={handleSaveSuggestion}
+                            placeholder="Postal Code"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">Country</label>
+                          <SuggestionInput
+                            field="manufCountry"
+                            value={manufCountry}
+                            onChange={setManufCountry}
+                            suggestions={fieldSuggestions['manufCountry'] || []}
+                            isAdmin={isAdmin}
+                            onDeleteSuggestion={handleDeleteSuggestion}
+                            onSaveSuggestion={handleSaveSuggestion}
+                            placeholder="Country"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setShowManufacturer(true)}
+                      className="p-4 border-2 border-dashed border-slate-200 rounded bg-white hover:border-blue-400 hover:bg-blue-50/20 cursor-pointer transition text-center group"
+                    >
+                      <p className="text-xs text-slate-500 group-hover:text-blue-600 font-medium flex items-center justify-center gap-1.5">
+                        <span>Manufacturer Information is <strong>Closed / OFF</strong>.</span>
+                        <span className="text-blue-600 font-semibold underline flex items-center">
+                          Click arrow button to use
+                          <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

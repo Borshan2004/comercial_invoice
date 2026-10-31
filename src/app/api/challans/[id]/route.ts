@@ -68,11 +68,11 @@ export async function PUT(
       shipperPhone = '880 1774-109199',
       shipperEmail = 'afaz@apparelsourcingint.com',
       // Manufacturer
-      manufCompany = 'PACIFIC BLUE JEANS WEAR LTD (Al muslim group)',
-      manufAddress = 'A-8/1, JALESHWAR, SAVAR',
-      manufCity = 'Dhaka',
-      manufPostalCode = '1340',
-      manufCountry = 'Bangladesh',
+      manufCompany = '',
+      manufAddress = '',
+      manufCity = '',
+      manufPostalCode = '',
+      manufCountry = '',
       // Consignee
       name,
       address,
@@ -84,11 +84,11 @@ export async function PUT(
       consigneeEmail,
       consigneeTaxId,
       // Origin & Codes
-      countryOfOrigin = 'BANGLADESH',
-      midCode = 'BDASIINC1206DHA',
-      purpose = 'SAMPLE FOR APPROVAL PURPOSE',
+      countryOfOrigin = '',
+      midCode = '',
+      purpose = '',
       totalValueInWords,
-      notes = '** THESE ARE SAMPLE SHIPMENTS, SENT FREE OF COST BASIS. SHOWING VALUE FOR CUSTOMS PURPOSES ONLY.',
+      notes = '',
       items = [],
     } = body;
 
@@ -153,15 +153,15 @@ export async function PUT(
       shipperPhone: shipperPhone.trim(),
       shipperEmail: shipperEmail.trim(),
 
-      manufCompany: manufCompany.trim(),
-      manufAddress: manufAddress.trim(),
-      manufCity: manufCity.trim(),
-      manufPostalCode: manufPostalCode.trim(),
-      manufCountry: manufCountry.trim(),
+      manufCompany: (manufCompany || '').trim(),
+      manufAddress: (manufAddress || '').trim(),
+      manufCity: (manufCity || '').trim(),
+      manufPostalCode: (manufPostalCode || '').trim(),
+      manufCountry: (manufCountry || '').trim(),
 
-      countryOfOrigin: countryOfOrigin.trim(),
-      midCode: midCode.trim(),
-      purpose: purpose.trim(),
+      countryOfOrigin: (countryOfOrigin || '').trim(),
+      midCode: (midCode || '').trim(),
+      purpose: (purpose || '').trim(),
       awbNo: awbNo !== undefined ? (awbNo && awbNo.trim() ? awbNo.trim() : null) : undefined,
       invoiceNo: invoiceNo !== undefined ? (invoiceNo && invoiceNo.trim() ? invoiceNo.trim() : null) : undefined,
       totalWeight: totalWeight !== undefined ? (totalWeight && totalWeight.trim() ? totalWeight.trim() : null) : undefined,
@@ -169,7 +169,7 @@ export async function PUT(
       totalAmountUsd,
 
       totalQty,
-      notes: notes.trim(),
+      notes: (notes || '').trim(),
       items: {
         create: formattedItems,
       },
